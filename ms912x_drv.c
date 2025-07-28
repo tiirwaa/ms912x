@@ -66,7 +66,7 @@ static const struct drm_mode_config_funcs ms912x_mode_config_funcs = {
 	.atomic_commit = drm_atomic_helper_commit,
 };
 
-static const struct ms912x_mode ms912x_mode_list[] = {
+struct ms912x_mode ms912x_mode_list[] = {
 	/* Found in captures of the Windows driver */
 	MS912X_MODE( 800,  600, 60, 0x4200, MS912X_PIXFMT_UYVY),
 	MS912X_MODE(1024,  768, 60, 0x4700, MS912X_PIXFMT_UYVY),
@@ -332,6 +332,38 @@ static const struct usb_device_id id_table[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(usb, id_table);
+
+// Forward declaration of the setter function
+static int mode_set(const char *val, const struct kernel_param *kp);
+
+// Parameter operations structure
+static const struct kernel_param_ops mode_set_ops = {
+    .set = mode_set,
+    .get = NULL, // write-only
+};
+
+// Module parameter definition
+module_param_cb(mode_set, &mode_set_ops, NULL, S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(mode_set, "Sets the mode_num field of ms912x_mode_list[0]");
+
+// Setter function for the mode_set parameter
+static int mode_set(const char *val, const struct kernel_param *kp) {
+    int ret;
+    unsigned int new_value;
+
+    ret = kstrtouint(val, 0, &new_value);
+    if (ret) {
+        pr_debug("ms912x: Invalid value for mode_set: %s\n", val);
+        return ret;
+    }
+
+    // Update the mode_num field only for the first element
+    ms912x_mode_list[0].mode = new_value;
+	
+    pr_debug("ms912x: ms912x_mode_list[0].mode_num set to 0x%x\n", new_value);
+	
+    return 0;
+}
 
 static struct usb_driver ms912x_driver = {
 	.name = "ms912x",
